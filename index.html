@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0f172a" />
+<title>ตรวจอาคาร - กะกลางคืน</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { background: #0f172a; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Sarabun", Roboto, sans-serif;
+    margin: 0;
+    color: #e5e7eb;
+    padding: 16px;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 480px;
+    margin: 0 auto;
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 4px;
+    text-align: center;
+    color: #f8fafc;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: #94a3b8;
+    margin-bottom: 16px;
+  }
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 14px 0 6px;
+    color: #cbd5e1;
+  }
+  input[type="text"], input[type="datetime-local"], textarea {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: #0f172a;
+    color: #f1f5f9;
+    font-family: inherit;
+  }
+  input:read-only {
+    background: #1e3a8a;
+    color: #bfdbfe;
+    font-weight: 600;
+    border-color: #1e40af;
+  }
+  textarea { min-height: 80px; resize: vertical; }
+  button {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 8px;
+    color: #f1f5f9;
+  }
+  .btn-primary { background: #2563eb; }
+  .btn-primary:disabled { background: #1e3a8a; opacity: 0.6; cursor: not-allowed; }
+  .btn-secondary { background: #334155; }
+  .btn-success { background: #059669; }
+  .btn-danger  { background: #dc2626; }
+  #qr-reader { width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
+  #qr-reader__dashboard_section_csr button { background: #2563eb !important; color: #fff !important; }
+  .photo-preview {
+    margin-top: 8px;
+    width: 100%;
+    border-radius: 8px;
+    display: none;
+    border: 1px solid #334155;
+  }
+  .status {
+    text-align: center;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 12px;
+    font-weight: 600;
+    display: none;
+  }
+  .status.success { background: #064e3b; color: #6ee7b7; display: block; }
+  .status.error   { background: #7f1d1d; color: #fecaca; display: block; }
+  .status.loading { background: #78350f; color: #fed7aa; display: block; }
+  .status-toggle {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .status-toggle button {
+    flex: 1;
+    margin: 0;
+    background: #334155;
+    color: #cbd5e1;
+    font-size: 18px;
+    padding: 16px 8px;
+  }
+  .status-toggle button.active.normal {
+    background: #059669;
+    color: #fff;
+    box-shadow: 0 0 0 2px #10b981;
+  }
+  .status-toggle button.active.abnormal {
+    background: #dc2626;
+    color: #fff;
+    box-shadow: 0 0 0 2px #ef4444;
+  }
+  .gps-info {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 4px;
+    padding: 8px;
+    background: #0f172a;
+    border-radius: 6px;
+    border: 1px solid #334155;
+  }
+  .gps-info.ok { color: #6ee7b7; border-color: #065f46; }
+  .gps-info.warn { color: #fcd34d; border-color: #92400e; }
+  .abnormal-section {
+    display: none;
+    background: #450a0a;
+    border: 1px solid #7f1d1d;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 12px;
+  }
+  .abnormal-section.show { display: block; }
+  .abnormal-section label { color: #fecaca; margin-top: 4px; }
+  .required { color: #fca5a5; font-size: 12px; }
+
+  /* ====== Success Modal ====== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    animation: fadeIn 0.2s ease;
+  }
+  .modal-overlay.show { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes popIn {
+    0%   { transform: scale(0.7); opacity: 0; }
+    60%  { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .modal-card {
+    background: #1e293b;
+    border: 2px solid #10b981;
+    border-radius: 20px;
+    padding: 32px 24px;
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(16, 185, 129, 0.3);
+    animation: popIn 0.3s ease-out;
+  }
+  .modal-icon {
+    width: 80px;
+    height: 80px;
+    background: #059669;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 50px;
+  }
+  .modal-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 8px;
+  }
+  .modal-message {
+    font-size: 15px;
+    color: #cbd5e1;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+  .modal-summary {
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 20px;
+    text-align: left;
+    font-size: 13px;
+    color: #94a3b8;
+    border: 1px solid #334155;
+  }
+  .modal-summary div { margin: 4px 0; }
+  .modal-summary b { color: #e2e8f0; }
+  .modal-btn {
+    background: #10b981;
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    padding: 14px;
+    width: 100%;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .modal-btn:active { background: #047857; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🌙 ตรวจอาคาร - รปภ. กะกลางคืน</h1>
+  <div class="subtitle">สแกน QR → ถ่ายรูป → บันทึก</div>
+
+  <label>1. รหัสจุดตรวจ (สแกน QR Code)</label>
+  <div id="qr-reader"></div>
+  <button id="startScan" class="btn-secondary" type="button">📷 เริ่มสแกน QR</button>
+  <input type="text" id="checkpoint" placeholder="ยังไม่ได้สแกน" readonly />
+
+  <label>2. ชื่อผู้ตรวจ</label>
+  <input type="text" id="inspector" placeholder="กรอกชื่อ-นามสกุล" />
+
+  <label>3. วันเวลาตรวจ</label>
+  <input type="datetime-local" id="datetime" />
+
+  <label>4. สถานะการตรวจ</label>
+  <div class="status-toggle">
+    <button type="button" id="btnNormal" data-status="ปกติ">✅ ปกติ</button>
+    <button type="button" id="btnAbnormal" data-status="ผิดปกติ">⚠️ ผิดปกติ</button>
+  </div>
+
+  <div id="abnormalSection" class="abnormal-section">
+    <label>รายละเอียดความผิดปกติ <span class="required">*</span></label>
+    <textarea id="notes" placeholder="ระบุสิ่งที่พบ เช่น ประตูชั้น 2 ไม่ล็อก, ไฟดับโซน A..."></textarea>
+  </div>
+
+  <label>5. ถ่ายรูปหลักฐาน</label>
+  <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" />
+  <button id="takePhoto" class="btn-secondary" type="button">📸 ถ่ายรูป / เลือกรูป</button>
+  <img id="photoPreview" class="photo-preview" alt="preview" />
+
+  <label>6. ตำแหน่ง GPS</label>
+  <div id="gpsInfo" class="gps-info">⏳ กำลังขอตำแหน่ง...</div>
+  <button id="refreshGps" class="btn-secondary" type="button" style="margin-top:6px">🔄 ดึงพิกัดใหม่</button>
+
+  <button id="submitBtn" class="btn-primary" type="button" style="margin-top:20px">💾 บันทึกข้อมูล</button>
+
+  <div id="status" class="status"></div>
+</div>
+
+<!-- ====== Success Modal ====== -->
+<div id="successModal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-icon">✓</div>
+    <div class="modal-title">บันทึกเสร็จสมบูรณ์</div>
+    <div class="modal-message">ข้อมูลถูกส่งไปยังระบบเรียบร้อยแล้ว</div>
+    <div class="modal-summary" id="modalSummary"></div>
+    <button id="modalOkBtn" class="modal-btn" type="button">ตกลง</button>
+  </div>
+</div>
+
+<script>
+  // ====== กำหนด URL ของ Google Apps Script Web App ที่ deploy แล้ว ======
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwnDKDdnts-XIIcZkl_nIv3dKzP26e1uh37RcRYpQC5z5z41eCCp7FCfoI4snDgptbH/exec";
+  // =====================================================================
+
+  const checkpointInput = document.getElementById('checkpoint');
+  const inspectorInput  = document.getElementById('inspector');
+  const datetimeInput   = document.getElementById('datetime');
+  const notesInput      = document.getElementById('notes');
+  const photoInput      = document.getElementById('photoInput');
+  const photoPreview    = document.getElementById('photoPreview');
+  const statusEl        = document.getElementById('status');
+  const startScanBtn    = document.getElementById('startScan');
+  const takePhotoBtn    = document.getElementById('takePhoto');
+  const submitBtn       = document.getElementById('submitBtn');
+  const btnNormal       = document.getElementById('btnNormal');
+  const btnAbnormal     = document.getElementById('btnAbnormal');
+  const abnormalSection = document.getElementById('abnormalSection');
+  const gpsInfoEl       = document.getElementById('gpsInfo');
+  const refreshGpsBtn   = document.getElementById('refreshGps');
+  const successModal    = document.getElementById('successModal');
+  const modalSummary    = document.getElementById('modalSummary');
+  const modalOkBtn      = document.getElementById('modalOkBtn');
+
+  let photoBase64 = null;
+  let html5QrCode = null;
+  let scanning = false;
+  let inspectionStatus = null;
+  let gpsData = null;
+
+  function setNowDateTime() {
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    datetimeInput.value = new Date(now - tzOffset).toISOString().slice(0, 16);
+  }
+  setNowDateTime();
+
+  // ====== Status toggle ======
+  btnNormal.addEventListener('click', () => setStatus('ปกติ'));
+  btnAbnormal.addEventListener('click', () => setStatus('ผิดปกติ'));
+
+  function setStatus(s) {
+    inspectionStatus = s;
+    btnNormal.classList.remove('active', 'normal');
+    btnAbnormal.classList.remove('active', 'abnormal');
+    if (s === 'ปกติ') {
+      btnNormal.classList.add('active', 'normal');
+      abnormalSection.classList.remove('show');
+    } else {
+      btnAbnormal.classList.add('active', 'abnormal');
+      abnormalSection.classList.add('show');
+    }
+  }
+
+  // ====== QR Scanner ======
+  startScanBtn.addEventListener('click', async () => {
+    if (scanning) { await stopScan(); return; }
+    try {
+      html5QrCode = new Html5Qrcode("qr-reader");
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (decodedText) => {
+          checkpointInput.value = decodedText.trim();
+          showStatus('สแกนสำเร็จ: ' + decodedText, 'success');
+          stopScan();
+        },
+        () => {}
+      );
+      scanning = true;
+      startScanBtn.textContent = '⏹ หยุดสแกน';
+    } catch (err) {
+      showStatus('ไม่สามารถเปิดกล้อง: ' + err, 'error');
+    }
+  });
+
+  async function stopScan() {
+    if (html5QrCode && scanning) {
+      try { await html5QrCode.stop(); await html5QrCode.clear(); } catch (e) {}
+      scanning = false;
+      startScanBtn.textContent = '📷 เริ่มสแกน QR';
+    }
+  }
+
+  // ====== Camera ======
+  takePhotoBtn.addEventListener('click', () => photoInput.click());
+  photoInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    resizeImage(file, 1280, 0.8).then(dataUrl => {
+      photoBase64 = dataUrl;
+      photoPreview.src = dataUrl;
+      photoPreview.style.display = 'block';
+    });
+  });
+
+  function resizeImage(file, maxDim, quality) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > height && width > maxDim) {
+            height = Math.round(height * (maxDim / width)); width = maxDim;
+          } else if (height > maxDim) {
+            width = Math.round(width * (maxDim / height)); height = maxDim;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ====== GPS ======
+  function fetchGps() {
+    if (!navigator.geolocation) {
+      gpsInfoEl.textContent = '❌ อุปกรณ์ไม่รองรับ GPS';
+      gpsInfoEl.className = 'gps-info warn';
+      return;
+    }
+    gpsInfoEl.textContent = '⏳ กำลังขอตำแหน่ง...';
+    gpsInfoEl.className = 'gps-info';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        gpsData = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: Math.round(pos.coords.accuracy),
+        };
+        gpsInfoEl.innerHTML =
+          `📍 <b>${gpsData.lat.toFixed(6)}, ${gpsData.lng.toFixed(6)}</b><br>` +
+          `ความแม่นยำ ±${gpsData.accuracy} ม.`;
+        gpsInfoEl.className = 'gps-info ok';
+      },
+      (err) => {
+        gpsData = null;
+        gpsInfoEl.textContent = '⚠️ ไม่ได้รับพิกัด: ' + err.message;
+        gpsInfoEl.className = 'gps-info warn';
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  }
+  refreshGpsBtn.addEventListener('click', fetchGps);
+  fetchGps();
+
+  // ====== Submit ======
+  submitBtn.addEventListener('click', async () => {
+    if (!checkpointInput.value) return showStatus('กรุณาสแกน QR Code จุดตรวจ', 'error');
+    if (!inspectorInput.value.trim()) return showStatus('กรุณากรอกชื่อผู้ตรวจ', 'error');
+    if (!datetimeInput.value) return showStatus('กรุณาเลือกวันเวลา', 'error');
+    if (!inspectionStatus) return showStatus('กรุณาเลือกสถานะ ปกติ / ผิดปกติ', 'error');
+    if (inspectionStatus === 'ผิดปกติ' && !notesInput.value.trim())
+      return showStatus('กรุณาระบุรายละเอียดความผิดปกติ', 'error');
+    if (!photoBase64) return showStatus('กรุณาถ่ายรูป', 'error');
+
+    if (APPS_SCRIPT_URL.includes('PASTE_YOUR'))
+      return showStatus('ยังไม่ได้ตั้งค่า APPS_SCRIPT_URL ในไฟล์ index.html', 'error');
+
+    submitBtn.disabled = true;
+    showStatus('กำลังส่งข้อมูล... กรุณารอสักครู่', 'loading');
+
+    const payload = {
+      checkpoint: checkpointInput.value,
+      inspector:  inspectorInput.value.trim(),
+      datetime:   datetimeInput.value,
+      status:     inspectionStatus,
+      notes:      notesInput.value.trim(),
+      photoBase64: photoBase64,
+      gps: gpsData,
+    };
+
+    try {
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showSuccessModal({
+          checkpoint: payload.checkpoint,
+          inspector: payload.inspector,
+          status: payload.status,
+          datetime: payload.datetime,
+        });
+      } else {
+        showStatus('❌ ผิดพลาด: ' + (data.error || 'ไม่ทราบสาเหตุ'), 'error');
+      }
+    } catch (err) {
+      showStatus('❌ ส่งข้อมูลไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  function resetForm() {
+    checkpointInput.value = '';
+    notesInput.value = '';
+    photoBase64 = null;
+    photoPreview.src = '';
+    photoPreview.style.display = 'none';
+    photoInput.value = '';
+    inspectionStatus = null;
+    btnNormal.classList.remove('active', 'normal');
+    btnAbnormal.classList.remove('active', 'abnormal');
+    abnormalSection.classList.remove('show');
+    setNowDateTime();
+    fetchGps();
+  }
+
+  function showStatus(msg, type) {
+    statusEl.textContent = msg;
+    statusEl.className = 'status ' + type;
+    if (type === 'success') setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+  }
+
+  function showSuccessModal(info) {
+    const dt = info.datetime.replace('T', ' ');
+    modalSummary.innerHTML =
+      `<div>📍 จุดตรวจ: <b>${info.checkpoint}</b></div>` +
+      `<div>👤 ผู้ตรวจ: <b>${info.inspector}</b></div>` +
+      `<div>📅 วันเวลา: <b>${dt}</b></div>` +
+      `<div>📋 สถานะ: <b style="color:${info.status === 'ผิดปกติ' ? '#fca5a5' : '#6ee7b7'}">${info.status}</b></div>`;
+    successModal.classList.add('show');
+    statusEl.style.display = 'none';
+  }
+
+  modalOkBtn.addEventListener('click', () => {
+    successModal.classList.remove('show');
+    resetForm();
+  });
+
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('cp')) checkpointInput.value = urlParams.get('cp');
+</script>
+
+</body>
+</html>
